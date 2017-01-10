@@ -99,7 +99,7 @@ class plgVmPaymentSaman extends vmPSPlugin {
 		$merchantId = $method->samanmerchantId;
 		$reservationNumber = time();
 		$totalAmount =  $totalInPaymentCurrency['value'];
-		$callBackUrl  = JURI::root().'index.php?option=com_virtuemart&view=pluginresponse&task=pluginresponsereceived';
+		$callBackUrl  = JURI::root().'index.php?option=com_virtuemart&view=pluginresponse&task=pluginresponsereceived&gid=9';
 		$sendUrl = "https\://sep.shaparak.ir/Payment.aspx";
 		
 		echo '
@@ -144,78 +144,89 @@ public function plgVmOnPaymentResponseReceived(&$html) {
 		
 		$app	= JFactory::getApplication();		
 		$jinput = $app->input;
-		$session = JFactory::getSession();
-
-		if ($session->isActive('uniq') && $session->get('uniq') != null) {
-			$cryptID = $session->get('uniq'); 
-		}
-		else {
-			$msg= $this->getGateMsg('notff'); 
-			$link = JRoute::_(JUri::root().'index.php/component/virtuemart/cart',false);
-			$app->redirect($link, '<h2>'.$msg.'</h2>', $msgType='Error'); 
-		}
-		$orderInfo = $this->getOrderInfo ($cryptID);
-		if ($orderInfo != null){
-			if (!($currentMethod = $this->getVmPluginMethod($orderInfo->virtuemart_paymentmethod_id))) {
-				return NULL; 
-			}			
-		}
-		else {
-			return NULL;  
-		}
+		$gateway = $jinput->get->get('gid', '0', 'INT');
 		
-		$resNum = $jinput->post->get('ResNum', '0', 'INT');
-		$trackingCode = $jinput->post->get('TRACENO', '0', 'INT');
-		$stateCode = $jinput->post->get('stateCode', '1', 'INT');
+		if ($gateway == '9'){
+			$session = JFactory::getSession();
+			if ($session->isActive('uniq') && $session->get('uniq') != null) {
+				$cryptID = $session->get('uniq'); 
+			}
+			else {
+				$msg= $this->getGateMsg('notff'); 
+				$link = JRoute::_(JUri::root().'index.php/component/virtuemart/cart',false);
+				$app->redirect($link, '<h2>'.$msg.'</h2>', $msgType='Error'); 
+			}
+			$orderInfo = $this->getOrderInfo ($cryptID);
+			if ($orderInfo != null){
+				if (!($currentMethod = $this->getVmPluginMethod($orderInfo->virtuemart_paymentmethod_id))) {
+					return NULL; 
+				}			
+			}
+			else {
+				return NULL;  
+			}
+			
+			$resNum = $jinput->post->get('ResNum', '0', 'INT');
+			$trackingCode = $jinput->post->get('TRACENO', '0', 'INT');
+			$stateCode = $jinput->post->get('stateCode', '1', 'INT');
+			
+			$refNum = $jinput->post->get('RefNum', 'empty', 'STRING');
+			if (checkHack::strip($refNum) != $refNum )
+				$refNum = "illegal";
+			$state = $jinput->post->get('State', 'empty', 'STRING');
+			if (checkHack::strip($state) != $state )
+				$state = "illegal";
+			$cardNumber = $jinput->post->get('SecurePan', 'empty', 'STRING'); 
+			if (checkHack::strip($cardNumber) != $cardNumber )
+				$cardNumber = "illegal";
 		
-		$refNum = $jinput->post->get('RefNum', 'empty', 'STRING');
-		if (checkHack::strip($refNum) != $refNum )
-			$refNum = "illegal";
-		$state = $jinput->post->get('State', 'empty', 'STRING');
-		if (checkHack::strip($state) != $state )
-			$state = "illegal";
-		$cardNumber = $jinput->post->get('SecurePan', 'empty', 'STRING'); 
-		if (checkHack::strip($cardNumber) != $cardNumber )
-			$cardNumber = "illegal";
-	
-		$salt = $orderInfo->salt;
-		$id = $orderInfo->virtuemart_order_id;
-		$uId = $cryptID.':'.$salt;
-		
-		$order_id = $orderInfo->order_number; 
-		//$mobile = $orderInfo->mobile; 
-		$payment_id = $orderInfo->virtuemart_paymentmethod_id; 
-		$pass_id = $orderInfo->order_pass;
-		$method = $this->getVmPluginMethod ($payment_id);
-		$price = round($orderInfo->amount,5);
-		
-		if (JUserHelper::verifyPassword($id , $uId)) {
-			if (
-				checkHack::checkNum($resNum) &&
-				checkHack::checkNum($stateCode) 
-			){
-				if (isset($state) && ($state == 'OK' || $stateCode == 0)) {
-					try {
-						$out    = new SoapClient('https://sep.shaparak.ir/payments/referencepayment.asmx?WSDL');
-						$resultCode    = $out->VerifyTransaction($refNum, $method->samanmerchantId);
-					
-						if ($resultCode == $price) {
-							$msg= $this->getGateMsg(1); 
-							$html = $this->renderByLayout('saman_payment', array(
-								'order_number' =>$order_id,
-								'order_pass' =>$pass_id,
-								'tracking_code' => $trackingCode,
-								'status' => $msg
-							));
-							$this->updateStatus ('C',1,$msg,$id);
-							$this->updateOrderInfo ($id,$trackingCode,$cardNumber);
-							vRequest::setVar ('html', $html);
-							$session->clear('uniq'); 
-							$cart = VirtueMartCart::getCart();
-							$cart->emptyCart();
+			$salt = $orderInfo->salt;
+			$id = $orderInfo->virtuemart_order_id;
+			$uId = $cryptID.':'.$salt;
+			
+			$order_id = $orderInfo->order_number; 
+			//$mobile = $orderInfo->mobile; 
+			$payment_id = $orderInfo->virtuemart_paymentmethod_id; 
+			$pass_id = $orderInfo->order_pass;
+			$method = $this->getVmPluginMethod ($payment_id);
+			$price = round($orderInfo->amount,5);
+			
+			if (JUserHelper::verifyPassword($id , $uId)) {
+				if (
+					checkHack::checkNum($resNum) &&
+					checkHack::checkNum($stateCode) 
+				){
+					if (isset($state) && ($state == 'OK' || $stateCode == 0)) {
+						try {
+							$out    = new SoapClient('https://sep.shaparak.ir/payments/referencepayment.asmx?WSDL');
+							$resultCode    = $out->VerifyTransaction($refNum, $method->samanmerchantId);
+						
+							if ($resultCode == $price) {
+								$msg= $this->getGateMsg(1); 
+								$html = $this->renderByLayout('saman_payment', array(
+									'order_number' =>$order_id,
+									'order_pass' =>$pass_id,
+									'tracking_code' => $trackingCode,
+									'status' => $msg
+								));
+								$this->updateStatus ('C',1,$msg,$id);
+								$this->updateOrderInfo ($id,$trackingCode,$cardNumber);
+								vRequest::setVar ('html', $html);
+								$session->clear('uniq'); 
+								$cart = VirtueMartCart::getCart();
+								$cart->emptyCart();
+							}
+							else {
+								$msg= $this->getGateMsg($state); 
+								if ($state == 'Canceled By User')
+									$this->updateStatus ('X',0,$msg,$id);
+								$link = JRoute::_(JUri::root().'index.php/component/virtuemart/cart',false);
+								$app->redirect($link, '<h2>'.$msg.'</h2>', $msgType='Error'); 
+								
+							}
 						}
-						else {
-							$msg= $this->getGateMsg($state); 
+						catch(\SoapFault $e)  {
+							$msg= $this->getGateMsg('error');
 							if ($state == 'Canceled By User')
 								$this->updateStatus ('X',0,$msg,$id);
 							$link = JRoute::_(JUri::root().'index.php/component/virtuemart/cart',false);
@@ -223,35 +234,29 @@ public function plgVmOnPaymentResponseReceived(&$html) {
 							
 						}
 					}
-					catch(\SoapFault $e)  {
-						$msg= $this->getGateMsg('error');
+					else {
+						$msg= $this->getGateMsg($state); 
 						if ($state == 'Canceled By User')
 							$this->updateStatus ('X',0,$msg,$id);
 						$link = JRoute::_(JUri::root().'index.php/component/virtuemart/cart',false);
 						$app->redirect($link, '<h2>'.$msg.'</h2>', $msgType='Error'); 
-						
 					}
 				}
 				else {
-					$msg= $this->getGateMsg($state); 
-					if ($state == 'Canceled By User')
-						$this->updateStatus ('X',0,$msg,$id);
+					$msg= $this->getGateMsg('hck2'); 
 					$link = JRoute::_(JUri::root().'index.php/component/virtuemart/cart',false);
 					$app->redirect($link, '<h2>'.$msg.'</h2>', $msgType='Error'); 
 				}
 			}
-			else {
-				$msg= $this->getGateMsg('hck2'); 
+			else {	
+				$msg= $this->getGateMsg('notff');
 				$link = JRoute::_(JUri::root().'index.php/component/virtuemart/cart',false);
 				$app->redirect($link, '<h2>'.$msg.'</h2>', $msgType='Error'); 
 			}
 		}
-		else {	
-			$msg= $this->getGateMsg('notff');
-			$link = JRoute::_(JUri::root().'index.php/component/virtuemart/cart',false);
-			$app->redirect($link, '<h2>'.$msg.'</h2>', $msgType='Error'); 
+		else {
+			return NULL;
 		}
-		
 	}
 
 
