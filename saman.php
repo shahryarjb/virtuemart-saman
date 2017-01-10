@@ -146,11 +146,10 @@ public function plgVmOnPaymentResponseReceived(&$html) {
 		$jinput = $app->input;
 		$session = JFactory::getSession();
 
-		if ($session->isActive('uniq')) {
+		if ($session->isActive('uniq') && $session->get('uniq') != null) {
 			$cryptID = $session->get('uniq'); 
 		}
 		else {
-			$app	= JFactory::getApplication();
 			$msg= $this->getGateMsg('notff'); 
 			$link = JRoute::_(JUri::root().'index.php/component/virtuemart/cart',false);
 			$app->redirect($link, '<h2>'.$msg.'</h2>', $msgType='Error'); 
@@ -211,15 +210,14 @@ public function plgVmOnPaymentResponseReceived(&$html) {
 							$this->updateStatus ('C',1,$msg,$id);
 							$this->updateOrderInfo ($id,$trackingCode,$cardNumber);
 							vRequest::setVar ('html', $html);
+							$session->clear('uniq'); 
 							$cart = VirtueMartCart::getCart();
 							$cart->emptyCart();
-							$session->clear('uniq'); 
 						}
 						else {
 							$msg= $this->getGateMsg($state); 
 							if ($state == 'Canceled By User')
 								$this->updateStatus ('X',0,$msg,$id);
-							$app	= JFactory::getApplication();
 							$link = JRoute::_(JUri::root().'index.php/component/virtuemart/cart',false);
 							$app->redirect($link, '<h2>'.$msg.'</h2>', $msgType='Error'); 
 							
@@ -229,7 +227,6 @@ public function plgVmOnPaymentResponseReceived(&$html) {
 						$msg= $this->getGateMsg('error');
 						if ($state == 'Canceled By User')
 							$this->updateStatus ('X',0,$msg,$id);
-						$app	= JFactory::getApplication();
 						$link = JRoute::_(JUri::root().'index.php/component/virtuemart/cart',false);
 						$app->redirect($link, '<h2>'.$msg.'</h2>', $msgType='Error'); 
 						
@@ -239,21 +236,18 @@ public function plgVmOnPaymentResponseReceived(&$html) {
 					$msg= $this->getGateMsg($state); 
 					if ($state == 'Canceled By User')
 						$this->updateStatus ('X',0,$msg,$id);
-					$app	= JFactory::getApplication();
 					$link = JRoute::_(JUri::root().'index.php/component/virtuemart/cart',false);
 					$app->redirect($link, '<h2>'.$msg.'</h2>', $msgType='Error'); 
 				}
 			}
 			else {
 				$msg= $this->getGateMsg('hck2'); 
-				$app	= JFactory::getApplication();
 				$link = JRoute::_(JUri::root().'index.php/component/virtuemart/cart',false);
 				$app->redirect($link, '<h2>'.$msg.'</h2>', $msgType='Error'); 
 			}
 		}
 		else {	
 			$msg= $this->getGateMsg('notff');
-			$app	= JFactory::getApplication();
 			$link = JRoute::_(JUri::root().'index.php/component/virtuemart/cart',false);
 			$app->redirect($link, '<h2>'.$msg.'</h2>', $msgType='Error'); 
 		}
